@@ -7,7 +7,8 @@ from firedrake.adjoint import *
 # -----------------optimal control poisson----------------------
 continue_annotation()
 
-mesh = UnitSquareMesh(10, 10)
+n = 32
+mesh = UnitSquareMesh(n, n)
 
 # Define two different function spaces
 V = FunctionSpace(mesh, "CG", 1)
@@ -35,7 +36,7 @@ alpha = Constant(1e-6)
 
 
 # Define control inner product
-ctrl_inner_product = "L2"
+ctrl_inner_product = "H1"
 
 # Define functional of interest and the reduced functional
 if ctrl_inner_product == "L2":
@@ -68,4 +69,4 @@ fig, axes = plt.subplots()
 contours = tricontour(f_opt, axes=axes)
 fig.colorbar(contours)
 plt.title("Optimized Control f_opt")
-plt.savefig("output.png")
+plt.savefig(f"output_{ctrl_inner_product}_{n}.png")

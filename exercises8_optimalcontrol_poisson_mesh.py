@@ -1,21 +1,40 @@
 import numpy as np
 import time
-from firedrake import *
-from firedrake.adjoint import *
 from pyadjoint import Block, MinimizationProblem, TAOSolver, get_working_tape
 import netgen
+from netgen.geom2d import SplineGeometry
+from firedrake import *
+from firedrake.adjoint import *
 
+"""
+Library versions:
+    
+    numpy - 2.3.0
+    scipy - 1.15.3
+    firedrake - 2025.4.1
+    pyadjoint-ad - 2025.4.0
+"""
 
-# Create mesh
-n = 16
-mesh = UnitSquareMesh(n, n)
+continue_annotation()
 
-# Refine in the center
+# Create mesh using netgen
+geo = SplineGeometry()
+geo.AddRectangle(p1=(-1, -1),
+                 p2=(1, 1),
+                 bc="rectangle",
+                 leftdomain=1,
+                 rightdomain=0)
+
+ngmsh = geo.GenerateMesh(maxh=0.1)
+# Generating a Firedrake mesh from the NetGen mesh
+mesh = Mesh(ngmsh)
+VTKFile("output/MeshExample1.pvd").write(mesh)
+
 def mark_center(mesh):
     W = FunctionSpace(mesh, "DG", 0)
     mark = Function(W)
     x, y = SpatialCoordinate(mesh)
-    center = conditional( And((abs(x - 0.5) < 0.1) , (abs(y - 0.5) < 0.1)), 1.0, 0.0 )
+    center = conditional( And((abs(x - 0.5) < 0.4) , (abs(y - 0.5) < 0.4)), 1.0, 0.0 )
     mark.interpolate(center)
     return mark
 
@@ -29,12 +48,14 @@ def refine_mesh_center(mesh, max_iterations=5):
         VTKFile(f"output/refined_mesh_{i}.pvd").write(mesh)
     return mesh
 
+mesh = refine_mesh_center(mesh, 1)
+
+
 # Uniform refine
-hierarchy = MeshHierarchy(mesh, 4)
-mesh = hierarchy[-1]
-
-#mesh = refine_mesh_center(mesh, 4)
-
+# n = 16
+# mesh = UnitSquareMesh(n, n)
+# hierarchy = MeshHierarchy(mesh, 4)
+# mesh = hierarchy[-1]
 
 
 # Define discrete function spaces and funcions
@@ -47,10 +68,11 @@ u = TrialFunction(V)
 v = TestFunction(V)
 
 # Define and solve the Poisson equation to generate the dolfin-adjoint annotation
-F = (inner(grad(u), grad(v)) - inner(f, v))*dx
 bc = DirichletBC(V, 0.0, "on_boundary")
+a = inner(grad(u), grad(v)) * dx
+L = inner(f, v) * dx
 u = Function(V)
-solve(F == 0, u, bc)
+solve(a == L, u, bc)
 
 # Define regularisation parameter
 alpha = Constant(1e-6)
@@ -75,15 +97,19 @@ elif regularisation_norm == "H0_1":
     J = assemble((0.5*inner(u-d, u-d))*dx + alpha/2*(grad(f)**2)*dx)
 elif regularisation_norm == "H2":
     J = assemble((0.5*inner(u-d, u-d))*dx + alpha/2*((grad(grad(f))**2)*dx + (grad(f)**2)*dx + f**2*dx))
+else:
+    raise ValueError("Choose control inner product as required")
 
 control = Control(f)
 rf = ReducedFunctional(J, control)
+pause_annotation()
 
 opt_package = "tao_lmvm"
-convert_options = "l2"
+convert_options = {"riesz_representation": "L2"}
 
 if opt_package == "tao_lmvm":
-    solver = TAOSolver(rf, {"tao_type": "lmvm",
+    problem = MinimizationProblem(rf)
+    solver = TAOSolver(problem, {"tao_type": "lmvm",
                                  "tao_gatol": 1.0e-7,
                                  "tao_grtol": 0.0,
                                  "tao_gttol": 0.0},
@@ -92,7 +118,8 @@ if opt_package == "tao_lmvm":
     f_opt = solver.solve()
 
 elif opt_package == "tao_nlm":
-    solver = TAOSolver(rf, {"tao_type": "nlm",
+    problem = MinimizationProblem(rf)
+    solver = TAOSolver(problem, {"tao_type": "nlm",
                                  "tao_gatol": 1.0e-7,
                                  "tao_grtol": 0.0,
                                  "tao_gttol": 0.0},
@@ -101,12 +128,15 @@ elif opt_package == "tao_nlm":
     f_opt = solver.solve()
 
 
-plot(f_opt, title="f_opt", interactive=True)
+#plot(f_opt, title="f_opt", interactive=True)
 
 j = rf(f_opt)
-dj = rf.derivative(forget=False, project=True)[0]
+dj = rf.derivative()
+h  = mesh.cell_sizes               
+hmin = h.dat.data_ro.min()    
+hmax = h.dat.data_ro.max()
 print ("Final:   \tJ = %s\t |dJ|_L2 = %s" % (j, norm(dj)))
 print ("=================================")
-print ("h(min):              %e." % mesh.hmin())
-print ("h(max):              %e." % mesh.hmax())
-print ("=================================")
+print(f"h(min):              {hmin:.6e}")
+print(f"h(max):              {hmax:.6e}")
+print("=================================")
