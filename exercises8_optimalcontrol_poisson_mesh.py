@@ -134,6 +134,7 @@ def run(opt_package="tao_lmvm",
                                         "tao_monitor": None,
                                         "tao_view": None},
                             convert_options=convert_options)
+            PETSc.Options()["pyadjoint_0_tao_view"] = None
             start_time = time.time()
             f_opt = solver.solve()
             runtime = time.time() - start_time
@@ -148,6 +149,7 @@ def run(opt_package="tao_lmvm",
                                         "tao_monitor": None,
                                         "tao_view": None},
                             convert_options=convert_options)
+            PETSc.Options()["pyadjoint_0_tao_view"] = None
             start_time = time.time()
             f_opt = solver.solve()
             runtime = time.time() - start_time
