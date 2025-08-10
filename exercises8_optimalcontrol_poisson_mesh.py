@@ -131,12 +131,13 @@ def run(opt_package="tao_lmvm",
                                         "tao_gatol": 1.0e-6,
                                         "tao_grtol": 0.0,
                                         "tao_gttol": 0.0,
-                                        "tao_monitor": None,
-                                        "tao_view": None},
+                                        #"tao_monitor": None,
+                                        #"tao_view": None
+                                        },
                             convert_options=convert_options)
-            PETSc.Options()["pyadjoint_0_tao_view"] = None
             start_time = time.time()
             f_opt = solver.solve()
+            # solver.tao.view()
             runtime = time.time() - start_time
             iter = solver.tao.getIterationNumber()
 
@@ -146,12 +147,43 @@ def run(opt_package="tao_lmvm",
                                         "tao_gatol": 1.0e-6,
                                         "tao_grtol": 0.0,
                                         "tao_gttol": 0.0,
+                                        #"tao_monitor": None,
+                                        #"tao_view": None
+                                        },
+                            convert_options=convert_options)
+            start_time = time.time()
+            f_opt = solver.solve()
+            # solver.tao.view()
+            runtime = time.time() - start_time
+            iter = solver.tao.getIterationNumber()
+
+        elif opt_package == "tao_bncg":
+            problem = MinimizationProblem(rf)
+            solver = TAOSolver(problem, {"tao_type": "bncg",
+                                        "tao_gatol": 1.0e-6,
+                                        "tao_grtol": 0.0,
+                                        "tao_gttol": 0.0,
                                         "tao_monitor": None,
                                         "tao_view": None},
                             convert_options=convert_options)
-            PETSc.Options()["pyadjoint_0_tao_view"] = None
             start_time = time.time()
             f_opt = solver.solve()
+            # solver.tao.view()
+            runtime = time.time() - start_time
+            iter = solver.tao.getIterationNumber()
+
+        elif opt_package == "tao_ntr":
+            problem = MinimizationProblem(rf)
+            solver = TAOSolver(problem, {"tao_type": "ntr",
+                                        "tao_gatol": 1.0e-6,
+                                        "tao_grtol": 0.0,
+                                        "tao_gttol": 0.0,
+                                        "tao_monitor": None,
+                                        "tao_view": None},
+                            convert_options=convert_options)
+            start_time = time.time()
+            f_opt = solver.solve()
+            # solver.tao.view()
             runtime = time.time() - start_time
             iter = solver.tao.getIterationNumber()
 
@@ -160,7 +192,7 @@ def run(opt_package="tao_lmvm",
             def cb(x):
                 counter["nit"] += 1
             start_time = time.time()
-            f_opt = minimize(rf, tol=1e-7, method="L-BFGS-B", options={"maxiter": 15000, 'maxcor': 10}, callback = cb)
+            f_opt = minimize(rf, tol=1.0e-6, method="L-BFGS-B", options={"maxiter": 15000, 'maxcor': 10}, callback = cb)
             runtime = time.time() - start_time
             iter = counter["nit"]
 
@@ -172,15 +204,15 @@ def run(opt_package="tao_lmvm",
         hmin = h.dat.data_ro.min()    
         hmax = h.dat.data_ro.max()
 
-        # print(f"Operating {opt_package}")
-        # print ("Final:   \tJ = %s\t |dJ|_L2 = %s" % (j, norm(dj)))
-        # print ("=================================")
-        # print(f"h(min):              {hmin:.6e}")
-        # print(f"h(max):              {hmax:.6e}")
-        # print(f"h(max)/h(min:        {hmax/hmin:.6e}")
-        # print("=================================")
-        # print(f"Iteration count:           {iter}")
-        # print(f"Run time:                  {runtime}")
+        print(f"Operating {opt_package}")
+        print ("Final:   \tJ = %s\t |dJ|_L2 = %s" % (j, norm(dj)))
+        print ("=================================")
+        print(f"h(min):              {hmin:.6e}")
+        print(f"h(max):              {hmax:.6e}")
+        print(f"h(max)/h(min:        {hmax/hmin:.6e}")
+        print("=================================")
+        print(f"Iteration count:           {iter}")
+        print(f"Run time:                  {runtime}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -188,7 +220,7 @@ if __name__ == "__main__":
     )
     parser.add_argument("--opt", "-o",
                         default="tao_lmvm",
-                        choices=["tao_lmvm", "tao_nls", "scipy"],
+                        choices=["tao_lmvm", "tao_nls", "tao_bncg", "tao_ntr", "scipy"],
                         help="Select optimisation package (Default tao_lmvm)")
     parser.add_argument("--riesz", "-r",
                         default="L2",
